@@ -292,11 +292,11 @@ public class SqlTask extends AbstractTask {
                 }
             }
 
-            try (PreparedStatement  stmt = prepareStatementAndBind(connection, mainSqlBinds);
-                 ResultSet resultSet = stmt.executeQuery()) {
+            try (PreparedStatement  stmt = prepareStatementAndBind(connection, mainSqlBinds)) {
                 // decide whether to executeQuery or executeUpdate based on sqlType
                 if (sqlParameters.getSqlType() == SqlType.QUERY.ordinal()) {
                     // query statements need to be convert to JsonArray and inserted into Alert to send
+                    ResultSet resultSet = stmt.executeQuery();
                     JSONArray resultJSONArray = new JSONArray();
                     ResultSetMetaData md = resultSet.getMetaData();
                     int num = md.getColumnCount();
@@ -360,20 +360,21 @@ public class SqlTask extends AbstractTask {
         // is the timeout set
         boolean timeoutFlag = taskProps.getTaskTimeoutStrategy() == TaskTimeoutStrategy.FAILED ||
                 taskProps.getTaskTimeoutStrategy() == TaskTimeoutStrategy.WARNFAILED;
-        try (PreparedStatement  stmt = connection.prepareStatement(sqlBinds.getSql())) {
-            if(timeoutFlag){
-                stmt.setQueryTimeout(taskProps.getTaskTimeout());
-            }
-            Map<Integer, Property> params = sqlBinds.getParamsMap();
-            if(params != null) {
-                for (Map.Entry<Integer, Property> entry : params.entrySet()) {
-                    Property prop = entry.getValue();
-                    ParameterUtils.setInParameter(entry.getKey(), stmt, prop.getType(), prop.getValue());
-                }
-            }
-            logger.info("prepare statement replace sql : {} ", stmt);
-            return stmt;
+        PreparedStatement stmt = connection.prepareStatement(sqlBinds.getSql());
+        if (timeoutFlag) {
+            stmt.setQueryTimeout(taskProps.getTaskTimeout());
         }
+
+        Map<Integer, Property> params = sqlBinds.getParamsMap();
+        if (params != null) {
+            for (Map.Entry<Integer, Property> entry : params.entrySet()) {
+                Property prop = entry.getValue();
+                ParameterUtils.setInParameter(entry.getKey(), stmt, prop.getType(), prop.getValue());
+            }
+        }
+
+        logger.info("prepare statement replace sql : {} ", stmt);
+        return stmt;
     }
 
     /**
